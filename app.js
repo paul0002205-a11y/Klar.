@@ -219,6 +219,10 @@ $('task-list').addEventListener('change',(event)=>{
 });
 $('export-data').addEventListener('click',()=>{
   const data=JSON.stringify({...state,exportedAt:new Date().toISOString()},null,2);
+  if (window.KlarNative && typeof window.KlarNative.saveBackup === 'function') {
+    window.KlarNative.saveBackup(data);
+    return;
+  }
   const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
   const link=el('a');link.href=url;link.download=`klar-backup-${dayKey()}.json`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Backup erstellt');
 });
