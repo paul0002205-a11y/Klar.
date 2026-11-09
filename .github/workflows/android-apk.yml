@@ -45,6 +45,8 @@ jobs:
             echo "failed" > builds/build-status.txt
           fi
           echo "Commit: ${GITHUB_SHA}" >> builds/build-status.txt
+          echo "Run-ID: ${GITHUB_RUN_ID}" >> builds/build-status.txt
+          echo "Run-URL: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >> builds/build-status.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add builds
