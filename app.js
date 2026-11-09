@@ -2,14 +2,14 @@
 'use strict';
 const KEY = 'klar.p009.v1';
 const $ = (id) => document.getElementById(id);
-const emptyState = () => ({ version: 1, habits: [], tasks: [], daily: {} });
+const emptyState = () => ({ version: 2, habits: [], tasks: [], daily: {}, history: {} });
 const id = () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const dayKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 const validDate = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const cleanString = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 function validate(raw) {
-  if (!raw || raw.version !== 1 || !Array.isArray(raw.habits) || !Array.isArray(raw.tasks) || !raw.daily || typeof raw.daily !== 'object' || Array.isArray(raw.daily)) throw new Error('Ungültiges Backup-Format');
-  if (raw.habits.length > 200 || raw.tasks.length > 500 || Object.keys(raw.daily).length > 4000) throw new Error('Backup ist zu groß');
+  if (!raw || ![1, 2].includes(raw.version) || !Array.isArray(raw.habits) || !Array.isArray(raw.tasks) || !raw.daily || typeof raw.daily !== 'object' || Array.isArray(raw.daily)) throw new Error('Ungültiges Backup-Format');
+  if (raw.habits.length > 200 || raw.tasks.length > 500 || Object.keys(raw.daily).length > 4000 || (raw.history && Object.keys(raw.history).length > 4000)) throw new Error('Backup ist zu groß');
   const habits = raw.habits.map((h) => ({ id: cleanString(h.id, 100), name: cleanString(h.name, 65), since: h.since })).filter((h) => h.id && h.name && validDate(h.since));
   const tasks = raw.tasks.map((t) => ({ id: cleanString(t.id, 100), name: cleanString(t.name, 100) })).filter((t) => t.id && t.name);
   if (habits.length !== raw.habits.length || tasks.length !== raw.tasks.length) throw new Error('Ungültige Einträge im Backup');
@@ -20,7 +20,15 @@ function validate(raw) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(list) || list.length > 500) throw new Error('Ungültiger Tagesverlauf');
     daily[date] = [...new Set(list.filter(x => typeof x === 'string' && taskIds.has(x)))];
   }
-  return { version: 1, habits, tasks, daily };
+  const history = {};
+  if (raw.version === 2) {
+    if (!raw.history || typeof raw.history !== 'object' || Array.isArray(raw.history)) throw new Error('Ungültige Verlaufsdaten');
+    for (const [date, entry] of Object.entries(raw.history)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !entry || !Number.isSafeInteger(entry.completed) || !Number.isSafeInteger(entry.total) || entry.completed < 0 || entry.total < 0 || entry.completed > entry.total || entry.total > 500) throw new Error('Ungültige Verlaufsdaten');
+      history[date] = { completed: entry.completed, total: entry.total };
+    }
+  }
+  return { version: 2, habits, tasks, daily, history };
 }
 let state;
 try { state = validate(JSON.parse(localStorage.getItem(KEY))) } catch { state = emptyState() }
@@ -81,6 +89,44 @@ function renderHabits() {
   refreshHabits();
 }
 function todayDone() {return new Set(state.daily[activeDay] || [])}
+function recordToday() {
+  const taskIds = new Set(state.tasks.map(t => t.id));
+  const completed = [...todayDone()].filter(taskId => taskIds.has(taskId)).length;
+  state.history[activeDay] = { completed, total: state.tasks.length };
+}
+function renderHistory() {
+  const keys = []; const today = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i, 12);
+    keys.push({ date: dayKey(d), label: new Intl.DateTimeFormat('de-DE', { weekday: 'short' }).format(d), today: i === 0 });
+  }
+  const entries = keys.map(({ date }) => state.history[date]).filter(entry => entry && entry.total > 0);
+  const doneSum = entries.reduce((sum, entry) => sum + entry.completed, 0);
+  const totalSum = entries.reduce((sum, entry) => sum + entry.total, 0);
+  const percentage = totalSum ? Math.round(doneSum * 100 / totalSum) : 0;
+  const perfect = entries.filter(entry => entry.completed === entry.total).length;
+  let streak = 0;
+  for (let index = 6; index >= 0; index--) {
+    const entry = state.history[keys[index].date];
+    if (index === 6 && (!entry || entry.total === 0 || entry.completed !== entry.total)) continue;
+    if (!entry || entry.total === 0 || entry.completed !== entry.total) break;
+    streak += 1;
+  }
+  $('history-average').textContent = `${percentage}%`;
+  $('history-perfect').replaceChildren(document.createTextNode(String(perfect) + ' '), el('small', '', '/ 7'));
+  $('history-streak').replaceChildren(document.createTextNode(String(streak) + ' '), el('small', '', streak === 1 ? 'Tag' : 'Tage'));
+  const container = $('history-bars'); container.replaceChildren();
+  for (const day of keys) {
+    const entry = state.history[day.date];
+    const percent = entry && entry.total ? Math.round(entry.completed * 100 / entry.total) : 0;
+    const wrapper = el('div', `history-day${day.today ? ' today' : ''}`);
+    const bar = el('div', 'history-bar');
+    const fill = el('div', 'history-bar-fill'); fill.style.height = `${percent}%`; bar.append(fill);
+    wrapper.append(el('span', 'history-value', entry && entry.total ? `${percent}%` : '–'), bar, el('span', 'history-day-label', day.label));
+    wrapper.title = entry && entry.total ? `${day.date}: ${entry.completed} von ${entry.total} Aufgaben` : `${day.date}: keine Daten`;
+    wrapper.setAttribute('aria-label', wrapper.title); container.append(wrapper);
+  }
+}
 function renderTasks() {
   const done=todayDone();
   const list=$('task-list');list.replaceChildren();
@@ -105,6 +151,7 @@ function renderTasks() {
   $('progress-title').textContent=total && completed===total?'Alles geschafft. Stark!':completed?'Du bist auf dem richtigen Weg':'Alles bereit für heute';
   $('progress-summary').textContent=total?`${completed} von ${total} Aufgaben erledigt`:'Füge deine erste Aufgabe hinzu.';
   $('hero-tasks').textContent=`${completed}/${total}`;
+  renderHistory();
 }
 function dateToInput(date) {const d = new Date(date);const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`}
 function openHabit(habit=null) {
@@ -122,7 +169,7 @@ function openTask(task=null) {
   $('task-dialog').showModal();$('task-name').focus();
 }
 function ensureDay() {
-  const next=dayKey();if(next!==activeDay){activeDay=next;renderTasks()}
+  const next=dayKey();if(next!==activeDay){activeDay=next;recordToday();save();renderTasks()}
   $('date-label').textContent=new Intl.DateTimeFormat('de-DE',{weekday:'short',day:'numeric',month:'long'}).format(new Date());
 }
 $('add-habit').addEventListener('click',()=>openHabit());
@@ -145,7 +192,7 @@ $('task-form').addEventListener('submit',(event)=>{
   const name=$('task-name').value.trim().slice(0,100);if(!name)return;
   if(openTaskId) state.tasks=state.tasks.map(t=>t.id===openTaskId?{...t,name}:t);
   else state.tasks.push({id:id(),name});
-  save();$('task-dialog').close();renderTasks();notify(openTaskId?'Aufgabe aktualisiert':'Aufgabe hinzugefügt');
+  recordToday();save();$('task-dialog').close();renderTasks();notify(openTaskId?'Aufgabe aktualisiert':'Aufgabe hinzugefügt');
 });
 $('habit-list').addEventListener('click',(event)=>{
   const b=event.target.closest('[data-action]');if(!b)return;
@@ -162,13 +209,13 @@ $('task-list').addEventListener('click',(event)=>{
   if(b.dataset.action==='delete-task'&&confirm(`„${task.name}“ wirklich löschen?`)){
     state.tasks=state.tasks.filter(t=>t.id!==task.id);
     for(const key of Object.keys(state.daily))state.daily[key]=state.daily[key].filter(x=>x!==task.id);
-    save();renderTasks();notify('Aufgabe gelöscht');
+    recordToday();save();renderTasks();notify('Aufgabe gelöscht');
   }
 });
 $('task-list').addEventListener('change',(event)=>{
   const checkbox=event.target;if(!checkbox.matches('.task-check'))return;
   ensureDay();const done=todayDone();checkbox.checked?done.add(checkbox.dataset.id):done.delete(checkbox.dataset.id);
-  state.daily[activeDay]=[...done];save();renderTasks();
+  state.daily[activeDay]=[...done];recordToday();save();renderTasks();
 });
 $('export-data').addEventListener('click',()=>{
   const data=JSON.stringify({...state,exportedAt:new Date().toISOString()},null,2);
@@ -186,7 +233,7 @@ $('import-file').addEventListener('change',async(event)=>{
   }catch(error){notify(`Import fehlgeschlagen: ${error.message}`)}
 });
 document.querySelectorAll('.dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close()}));
-ensureDay();renderHabits();renderTasks();
+recordToday();save();ensureDay();renderHabits();renderTasks();
 setInterval(()=>{ensureDay();refreshHabits()},30_000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){ensureDay();refreshHabits()}});
 if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) {
