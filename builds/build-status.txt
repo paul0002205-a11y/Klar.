@@ -1,4 +1,4 @@
-failed
-Commit: 305d8695c003f3764fb19ec95611e50d23685250
-Run-ID: 42563157843
-Run-URL: https://github.com/paul0002205-a11y/Klar./actions/runs/42563157843
+success
+Commit: 9c0ef45753609fca90bb6b5f028b68f2911dbe2a
+Run-ID: 42563262039
+Run-URL: https://github.com/paul0002205-a11y/Klar./actions/runs/42563262039
