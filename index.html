@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b100f" />
+  <meta name="description" content="Deine täglichen Checklisten und persönlichen Frei-seit-Zähler. Privat, offline und ohne Account." />
+  <meta name="color-scheme" content="dark" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>Klar. — Jeden Tag ein Stück weiter</title>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-a" aria-hidden="true"></div>
+  <div class="ambient ambient-b" aria-hidden="true"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">K<span>.</span></div><div><div class="brand-name">Klar<span>.</span></div><div class="brand-caption">DEIN RAUM. DEIN RHYTHMUS.</div></div></div>
+      <span class="local-pill"><span class="pulse-dot" aria-hidden="true"></span> Privat & offline</span>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-topline"><span class="eyebrow">DEIN DASHBOARD</span><span id="date-label" class="hero-date"></span></div>
+        <div class="hero-main"><div><h1 id="hero-title">Ein Tag nach<br><em>dem anderen.</em></h1><p>Behalte im Blick, was dir wichtig ist. Kein Druck, nur Fortschritt.</p></div><div class="hero-orb" aria-hidden="true"><span>✦</span></div></div>
+        <div class="hero-bottom"><span class="small-metric"><strong id="hero-habits">0</strong> aktive Zähler</span><span class="metric-divider" aria-hidden="true"></span><span class="small-metric"><strong id="hero-tasks">0/0</strong> heute erledigt</span></div>
+      </section>
+      <section class="section" aria-labelledby="habits-heading">
+        <div class="section-heading"><div><div class="section-kicker">01 / DEINE MEILENSTEINE</div><h2 id="habits-heading">Frei seit <span class="heading-accent">↗</span></h2><p class="section-desc">Jede Minute zählt. Halte fest, wann du begonnen hast.</p></div><button class="btn btn-primary" id="add-habit" type="button"><span aria-hidden="true">＋</span> Neuer Zähler</button></div>
+        <div class="habit-grid" id="habit-list" aria-live="polite"></div>
+        <div class="empty" id="habit-empty"><div class="empty-art" aria-hidden="true">↗</div><strong>Dein erster Meilenstein wartet.</strong><p>Zum Beispiel „Rauchfrei“ oder „Ohne Vape“ – du entscheidest.</p><button class="btn btn-soft" id="add-habit-empty" type="button">Zähler erstellen</button></div>
+      </section>
+      <section class="section tasks-section" aria-labelledby="tasks-heading">
+        <div class="section-heading"><div><div class="section-kicker">02 / DEINE ROUTINE</div><h2 id="tasks-heading">Heute im Fokus<span class="heading-accent">.</span></h2><p class="section-desc">Deine persönliche tägliche Checkliste. Morgen beginnt sie neu.</p></div><button class="btn btn-primary" id="add-task" type="button"><span aria-hidden="true">＋</span> Aufgabe</button></div>
+        <div class="task-panel">
+          <div class="progress-header"><div class="progress-ring" id="progress-ring" role="img" aria-label="0 Prozent erledigt"><div><strong id="progress-percent">0%</strong></div></div><div class="progress-text"><span class="eyebrow">DEIN TAGESFORTSCHRITT</span><strong id="progress-title">Alles bereit für heute</strong><span id="progress-summary">Füge deine erste Aufgabe hinzu.</span></div></div>
+          <div class="progress-track" aria-hidden="true"><div id="progress-fill"></div></div>
+          <div class="task-list" id="task-list"></div>
+          <div class="empty empty-tasks" id="task-empty"><strong>Gestalte deine Routine.</strong><p>Erstelle Aufgaben, die du jeden Tag abhaken möchtest.</p><button class="text-button" id="add-task-empty" type="button">＋ Erste Aufgabe hinzufügen</button></div>
+          <div class="task-footer"><span>Automatischer Neustart jeden Tag um 00:00 Uhr</span><span class="footer-star" aria-hidden="true">✳</span></div>
+        </div>
+      </section>
+      <section class="data-section" aria-labelledby="data-heading"><div><div class="section-kicker">03 / DEINE DATEN</div><h2 id="data-heading">Alles bei dir.</h2><p>Deine Einträge werden nur in diesem Browser gespeichert. Sichere sie regelmäßig als Datei.</p></div><div class="backup-actions"><button id="export-data" type="button" class="btn btn-outline">↓ Backup speichern</button><button id="import-data" type="button" class="btn btn-outline">↑ Backup laden</button><input type="file" id="import-file" accept="application/json,.json" hidden /></div></section>
+    </main>
+    <footer class="site-footer"><span>Klar<span class="heading-accent">.</span> <span class="footer-muted">by P1aulie</span></span><span>Einfach anfangen. Dranbleiben.</span></footer>
+  </div>
+  <dialog id="habit-dialog" class="dialog"><form method="dialog" id="habit-form"><div class="dialog-heading"><div class="section-kicker">MEILENSTEIN</div><h2 id="habit-dialog-title">Neuer Zähler</h2><p>Wovon möchtest du frei sein, und seit wann?</p></div><label for="habit-name">Bezeichnung</label><input id="habit-name" name="name" type="text" maxlength="65" autocomplete="off" placeholder="z. B. Rauchfrei" required /><label for="habit-since">Startdatum & Uhrzeit</label><input id="habit-since" name="since" type="datetime-local" required /><p class="field-note">Du kannst den Startzeitpunkt später ändern.</p><div class="dialog-actions"><button class="btn btn-outline" type="button" data-close="habit-dialog">Abbrechen</button><button class="btn btn-primary" type="submit">Speichern</button></div></form></dialog>
+  <dialog id="task-dialog" class="dialog"><form method="dialog" id="task-form"><div class="dialog-heading"><div class="section-kicker">TÄGLICHE ROUTINE</div><h2 id="task-dialog-title">Neue Aufgabe</h2><p>Diese Aufgabe erscheint jeden Tag erneut.</p></div><label for="task-name">Aufgabe</label><input id="task-name" name="name" type="text" maxlength="100" autocomplete="off" placeholder="z. B. 20 Minuten spazieren" required /><div class="dialog-actions"><button class="btn btn-outline" type="button" data-close="task-dialog">Abbrechen</button><button class="btn btn-primary" type="submit">Speichern</button></div></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
