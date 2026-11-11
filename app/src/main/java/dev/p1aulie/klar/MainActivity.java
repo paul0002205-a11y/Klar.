@@ -28,7 +28,7 @@ public final class MainActivity extends Activity {
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
-    private String pendingBackup;
+    private String pendingExport;
 
     @Override
     @SuppressWarnings("SetJavaScriptEnabled")
@@ -102,16 +102,31 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public void saveBackup(String json) {
             if (json == null || json.length() > 2_000_000) return;
-            runOnUiThread(() -> {
-                pendingBackup = json;
-                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("application/json");
-                intent.putExtra(Intent.EXTRA_TITLE, "Klar-Backup.json");
-                try { startActivityForResult(intent, REQUEST_EXPORT); }
-                catch (Exception e) { pendingBackup = null; toast("Speichern nicht möglich"); }
-            });
+            openSaveDialog(json, "Klar-Backup.json", "application/json");
         }
+
+        @JavascriptInterface
+        public void saveWeeklyReport(String csv, String filename) {
+            if (csv == null || csv.length() > 2_000_000 || filename == null
+                    || !filename.matches("Klar-Woche-\\d{4}-\\d{2}-\\d{2}_bis_\\d{4}-\\d{2}-\\d{2}\\.csv")) return;
+            openSaveDialog(csv, filename, "text/csv");
+        }
+    }
+
+    private void openSaveDialog(String content, String filename, String mimeType) {
+        runOnUiThread(() -> {
+            if (pendingExport != null) {
+                toast("Speicherdialog bereits geöffnet");
+                return;
+            }
+            pendingExport = content;
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType(mimeType);
+            intent.putExtra(Intent.EXTRA_TITLE, filename);
+            try { startActivityForResult(intent, REQUEST_EXPORT); }
+            catch (Exception e) { pendingExport = null; toast("Speichern nicht möglich"); }
+        });
     }
 
     @Override
@@ -124,16 +139,16 @@ public final class MainActivity extends Activity {
                 fileCallback = null;
             }
         } else if (requestCode == REQUEST_EXPORT) {
-            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingBackup != null) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingExport != null) {
                 try (OutputStream out = getContentResolver().openOutputStream(data.getData())) {
                     if (out == null) throw new IOException("Missing output stream");
-                    out.write(pendingBackup.getBytes(StandardCharsets.UTF_8));
-                    toast("Backup gespeichert");
+                    out.write(pendingExport.getBytes(StandardCharsets.UTF_8));
+                    toast("Datei gespeichert");
                 } catch (Exception e) {
-                    toast("Backup konnte nicht gespeichert werden");
+                    toast("Datei konnte nicht gespeichert werden");
                 }
             }
-            pendingBackup = null;
+            pendingExport = null;
         }
     }
 
