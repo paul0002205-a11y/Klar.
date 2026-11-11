@@ -22,8 +22,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Verify JavaScript syntax
-        run: node --check app.js
+      - name: Verify JavaScript and weekly report
+        run: |
+          node --check app.js
+          node --test tests/weekly-report.test.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
