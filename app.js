@@ -35,6 +35,7 @@ try { state = validate(JSON.parse(localStorage.getItem(KEY))) } catch { state = 
 let openHabitId = null;
 let openTaskId = null;
 let activeDay = dayKey();
+let weekOffset = 0; // 0 = current Monday–Sunday calendar week
 let toastTimer;
 function notify(message) {
   $('toast').textContent = message;
@@ -94,38 +95,102 @@ function recordToday() {
   const completed = [...todayDone()].filter(taskId => taskIds.has(taskId)).length;
   state.history[activeDay] = { completed, total: state.tasks.length };
 }
+function getWeekDays() {
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + weekOffset * 7);
+  return Array.from({length: 7}, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return {date: dayKey(date), label: new Intl.DateTimeFormat('de-DE', {weekday:'short'}).format(date), today:dayKey(date)===dayKey()};
+  });
+}
+function weekSummary(days) {
+  const entries=days.map(d=>state.history[d.date]).filter(e=>e && e.total>0);
+  const completed=entries.reduce((sum,e)=>sum+e.completed,0);
+  const total=entries.reduce((sum,e)=>sum+e.total,0);
+  const perfect=entries.filter(e=>e.completed===e.total).length;
+  let streak=0;
+  for(let i=6;i>=0;i--) {
+    const key=days[i].date;
+    if(key>dayKey()) continue;
+    const entry=state.history[key];
+    if(key===dayKey() && (!entry||entry.total===0||entry.completed!==entry.total)) continue;
+    if(!entry||entry.total===0||entry.completed!==entry.total) break;
+    streak++;
+  }
+  return {completed,total,percent:total?Math.round(completed*100/total):0,perfect,streak,recorded:entries.length};
+}
 function renderHistory() {
-  const keys = []; const today = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i, 12);
-    keys.push({ date: dayKey(d), label: new Intl.DateTimeFormat('de-DE', { weekday: 'short' }).format(d), today: i === 0 });
+  const days=getWeekDays();
+  const summary=weekSummary(days);
+  const asShort=iso=>new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(iso+'T12:00:00'));
+  $('week-label').textContent=`${asShort(days[0].date)} – ${asShort(days[6].date)}`;
+  $('week-next').disabled=weekOffset>=0;
+  $('history-average').textContent=`${summary.percent}%`;
+  $('history-perfect').replaceChildren(document.createTextNode(String(summary.perfect)+' '),el('small','','/ 7'));
+  $('history-streak').replaceChildren(document.createTextNode(String(summary.streak)+' '),el('small','',summary.streak===1?'Tag':'Tage'));
+  const container=$('history-bars');
+  container.replaceChildren();
+  for(const day of days) {
+    const entry=state.history[day.date];
+    const percent=entry&&entry.total?Math.round(entry.completed*100/entry.total):0;
+    const wrapper=el('div',`history-day${day.today?' today':''}`);
+    const bar=el('div','history-bar');
+    const fill=el('div','history-bar-fill');
+    fill.style.height=`${percent}%`;
+    bar.append(fill);
+    wrapper.append(el('span','history-value',entry&&entry.total?`${percent}%`:'–'),bar,el('span','history-day-label',day.label));
+    wrapper.title=entry&&entry.total?`${day.date}: ${entry.completed} von ${entry.total} Aufgaben`:`${day.date}: keine Daten`;
+    wrapper.setAttribute('aria-label',wrapper.title);
+    container.append(wrapper);
   }
-  const entries = keys.map(({ date }) => state.history[date]).filter(entry => entry && entry.total > 0);
-  const doneSum = entries.reduce((sum, entry) => sum + entry.completed, 0);
-  const totalSum = entries.reduce((sum, entry) => sum + entry.total, 0);
-  const percentage = totalSum ? Math.round(doneSum * 100 / totalSum) : 0;
-  const perfect = entries.filter(entry => entry.completed === entry.total).length;
-  let streak = 0;
-  for (let index = 6; index >= 0; index--) {
-    const entry = state.history[keys[index].date];
-    if (index === 6 && (!entry || entry.total === 0 || entry.completed !== entry.total)) continue;
-    if (!entry || entry.total === 0 || entry.completed !== entry.total) break;
-    streak += 1;
+}
+function csvCell(value) {
+  let v=String(value ?? '');
+  if(/^\s*[=+\-@]/.test(v)) v="'"+v;
+  return '"'+v.replace(/"/g,'""')+'"';
+}
+function generateWeeklyCsv() {
+  const days=getWeekDays();
+  const summary=weekSummary(days);
+  const rows=[
+    ['Klar. — Wochenbericht',`${days[0].date} bis ${days[6].date}`],
+    ['Exportdatum',new Date().toLocaleString('de-DE')],
+    [],
+    ['Datum','Wochentag','Erledigte Aufgaben','Aufgaben gesamt','Quote (%)','Status']
+  ];
+  for(const day of days){
+    const entry=state.history[day.date];
+    const recorded=entry&&entry.total>0;
+    rows.push([day.date,day.label,recorded?entry.completed:'',recorded?entry.total:'',recorded?Math.round(entry.completed*100/entry.total):'',recorded?'Erfasst':'Keine Daten']);
   }
-  $('history-average').textContent = `${percentage}%`;
-  $('history-perfect').replaceChildren(document.createTextNode(String(perfect) + ' '), el('small', '', '/ 7'));
-  $('history-streak').replaceChildren(document.createTextNode(String(streak) + ' '), el('small', '', streak === 1 ? 'Tag' : 'Tage'));
-  const container = $('history-bars'); container.replaceChildren();
-  for (const day of keys) {
-    const entry = state.history[day.date];
-    const percent = entry && entry.total ? Math.round(entry.completed * 100 / entry.total) : 0;
-    const wrapper = el('div', `history-day${day.today ? ' today' : ''}`);
-    const bar = el('div', 'history-bar');
-    const fill = el('div', 'history-bar-fill'); fill.style.height = `${percent}%`; bar.append(fill);
-    wrapper.append(el('span', 'history-value', entry && entry.total ? `${percent}%` : '–'), bar, el('span', 'history-day-label', day.label));
-    wrapper.title = entry && entry.total ? `${day.date}: ${entry.completed} von ${entry.total} Aufgaben` : `${day.date}: keine Daten`;
-    wrapper.setAttribute('aria-label', wrapper.title); container.append(wrapper);
+  rows.push([],['Wochenzusammenfassung','Wert'],['Erledigungsquote (%)',summary.percent],['Erledigt (gesamt)',summary.completed],['Aufgaben (gesamt)',summary.total],['Perfekte Tage',summary.perfect],['Tage mit Daten',summary.recorded],['Serie innerhalb der Woche (Tage)',summary.streak]);
+  rows.push([],['Frei-seit-Zähler','Startzeitpunkt','Volle Tage bis zum Wochenende']);
+  const [y,m,d]=days[6].date.split('-').map(Number);
+  const cutoff=Math.min(Date.now(),new Date(y,m-1,d,23,59,59,999).getTime());
+  for(const habit of state.habits) {
+    const start=new Date(habit.since).getTime();
+    const completedDays=cutoff>=start?Math.floor((cutoff-start)/86400000):'Noch nicht gestartet';
+    rows.push([habit.name,new Date(habit.since).toLocaleString('de-DE'),completedDays]);
   }
+  rows.push([],['Hinweis','Leere Tage gelten als fehlende Daten, nicht als 0 %; der Bericht ist keine vollständige Datensicherung.']);
+  return '\uFEFFsep=;\r\n'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
+}
+function exportWeeklyReport() {
+  ensureDay();
+  const days=getWeekDays();
+  const name=`Klar-Woche-${days[0].date}_bis_${days[6].date}.csv`;
+  const report=generateWeeklyCsv();
+  if(window.KlarNative && typeof window.KlarNative.saveWeeklyReport==='function') {
+    window.KlarNative.saveWeeklyReport(report,name);
+    return;
+  }
+  const url=URL.createObjectURL(new Blob([report],{type:'text/csv;charset=utf-8'}));
+  const link=el('a');
+  link.href=url;link.download=name;document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  notify('Wochenbericht als CSV exportiert');
 }
 function renderTasks() {
   const done=todayDone();
@@ -176,6 +241,9 @@ $('add-habit').addEventListener('click',()=>openHabit());
 $('add-habit-empty').addEventListener('click',()=>openHabit());
 $('add-task').addEventListener('click',()=>openTask());
 $('add-task-empty').addEventListener('click',()=>openTask());
+$('week-prev').addEventListener('click',()=>{weekOffset=Math.max(weekOffset-1,-520);renderHistory()});
+$('week-next').addEventListener('click',()=>{weekOffset=Math.min(weekOffset+1,0);renderHistory()});
+$('export-week').addEventListener('click',exportWeeklyReport);
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.close).close()));
 $('habit-form').addEventListener('submit',(event)=>{
   event.preventDefault();
