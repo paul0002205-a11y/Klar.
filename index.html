@@ -44,11 +44,17 @@
       </section>
       
 <section class="section history-section" aria-labelledby="history-heading">
-  <div class="section-heading history-title"><div><div class="section-kicker">03 / DEIN FORTSCHRITT</div><h2 id="history-heading">Deine letzten 7 Tage<span class="heading-accent">.</span></h2><p class="section-desc">Deine erledigten täglichen Aufgaben im Rückblick.</p></div></div>
+  <div class="section-heading history-title"><div><div class="section-kicker">03 / DEIN FORTSCHRITT</div><h2 id="history-heading">Deine Woche<span class="heading-accent">.</span></h2><p class="section-desc">Deine erledigten täglichen Aufgaben – auch aus vergangenen Wochen.</p></div></div>
+  <div class="week-toolbar" aria-label="Kalenderwoche auswählen">
+    <button class="week-nav" id="week-prev" type="button" aria-label="Vorherige Woche">‹</button>
+    <span class="week-label" id="week-label">Woche auswählen</span>
+    <button class="week-nav" id="week-next" type="button" aria-label="Nächste Woche">›</button>
+    <button class="btn btn-primary week-export" id="export-week" type="button">↓ Woche als CSV exportieren</button>
+  </div>
   <div class="history-panel">
     <div class="history-summary"><div class="history-metric"><span>ERLEDIGUNGSQUOTE</span><strong id="history-average">0%</strong></div><div class="history-metric"><span>PERFEKTE TAGE</span><strong id="history-perfect">0 <small>/ 7</small></strong></div><div class="history-metric"><span>AKTUELLE SERIE</span><strong id="history-streak">0 <small>Tage</small></strong></div></div>
     <div class="history-bars" id="history-bars" aria-label="Fortschritt der letzten sieben Tage"></div>
-    <p class="history-note">Tage ohne Eintrag werden nicht in die Quote eingerechnet. Dein Verlauf bleibt im lokalen Backup erhalten.</p>
+    <p class="history-note">Tage ohne Eintrag werden nicht in die Quote eingerechnet. Der Wochenexport enthält die Tageswerte und deine Frei-seit-Zähler. Er ist kein Ersatz für ein vollständiges Backup.</p>
   </div>
 </section>
 <section class="data-section" aria-labelledby="data-heading"><div><div class="section-kicker">04 / DEINE DATEN</div><h2 id="data-heading">Alles bei dir.</h2><p>Deine Einträge werden nur in diesem Browser gespeichert. Sichere sie regelmäßig als Datei.</p></div><div class="backup-actions"><button id="export-data" type="button" class="btn btn-outline">↓ Backup speichern</button><button id="import-data" type="button" class="btn btn-outline">↑ Backup laden</button><input type="file" id="import-file" accept="application/json,.json" hidden /></div></section>
